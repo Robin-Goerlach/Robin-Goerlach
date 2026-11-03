@@ -15,8 +15,8 @@ Hi! I'm Robin Goerlach, a forward-thinking developer with a knack for creating i
 ### 🛠️ My Tech Arsenal:
 - **Front-End:** React, TailwindCSS, JavaScript, HTML5, CSS3.
 - **Back-End:** Node.js, ASP.NET Core, Spring Boot.
-- **Programming Languages:** C#, Java, JavaScript.
-- **Databases:** MySQL, MongoDB, PostgreSQL.
+- **Programming Languages:** C++, C#, Java, JavaScript, Perl.
+- **Databases:** MySQL, MongoDB, PostgreSQL, Oracle.
 - **Tools & Platforms:** Visual Studio, Visual Studio Code, Git/GitHub, and more.
 
 ---
