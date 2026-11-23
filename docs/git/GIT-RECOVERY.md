@@ -14,7 +14,7 @@ git reflog -10
 git diff
 git diff --cached
 ~~~
-Vor riskanten Änderungen gegebenenfalls **git branch rescue/2026-11-23 HEAD** anlegen und nicht committete Arbeit separat sichern.
+Vor riskanten Änderungen gegebenenfalls **git branch rescue/vor-reparatur HEAD** anlegen und nicht committete Arbeit separat sichern.
 
 ## Welcher Fehler liegt vor?
 | Problem | Schon geteilt? | Meist passende Maßnahme |

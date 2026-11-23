@@ -283,8 +283,6 @@ Offizielle Dokumentation (Funktionsumfang und Menünamen können sich ändern):
 
 ---
 
-**Arbeitsweise:** Diese Datei ist bereits auf GitHub veröffentlicht. Die Prüfung konkreter Einstellungen und Änderungen daran sind separate Arbeitsschritte. Das Anlegen oder Überarbeiten der Markdown-Datei ändert **keine** GitHub-Sicherheitseinstellungen.
-
 ## 17. Praktische Audit-Playbooks (ohne Konfigurationsänderung)
 
 Ein Audit besteht aus **Zugriff auf den tatsächlichen Zustand**, **Kontrolle der Wirksamkeit**, **Risikoentscheidung** und **Nachprüfung**. Ein auf GitHub veröffentlichtes Dokument kann all dies nicht allein durchführen.
@@ -503,3 +501,7 @@ Für offizielle SASDGMBH-Releases muss die Freigabe stattdessen nachweisbar sein
 - [Dependency Graph Ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems)
 - [Dependabot Ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
 - [CodeQL for Compiled Languages](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/codeql-for-compiled-languages)
+
+---
+
+**Arbeitsweise:** Diese Prüfliste ist auf GitHub veröffentlicht. Reale Sicherheitseinstellungen und Prüfresultate werden gesondert kontrolliert; die Markdown-Datei verändert sie nicht. Vertrauliche Nachweise gehören nicht in das öffentliche Profil-Repository.

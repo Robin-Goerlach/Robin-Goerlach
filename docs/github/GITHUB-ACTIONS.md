@@ -7,41 +7,7 @@
 ## Aufbau und Vertrauensgrenzen
 Workflows stehen als YAML-Dateien unter **.github/workflows/**. Ein Workflow wird durch **events** ausgelöst und enthält **jobs**, **steps**, Berechtigungen und optional Secrets/Environments. Der Auslöser ist sicherheitsrelevant: Eine PR aus einem Fork ist nicht vertrauenswürdig wie ein Push auf **main**.
 
-## CI-Beispiel und sichere Ausführung
-
-Das frühere Minimalbeispiel wurde durch ein konkretes, geprüftes CMake-CI-Muster im Abschnitt **„Überarbeitetes CMake-CI-Beispiel“** ersetzt. Die Beschreibung der Mindestmaßnahmen folgt hier, bevor das vollständige YAML weiter unten erscheint.
-
-## Rechte des GITHUB_TOKEN
-- Repositoryweit **permissions: contents: read** oder bei Bedarf **permissions: {}**.
-- Schreibrechte für einzelne Jobs gezielt erweitern; Testjobs benötigen gewöhnlich keine Schreibrechte.
-- PATs möglichst vermeiden; für automatisierte Änderungen geeignete GitHub-App-Rechte prüfen.
-- **persist-credentials: false** bei Checkout, wenn nach dem Checkout keine authentifizierten Git-Operationen notwendig sind.
-
-## Angriffsflächen und Gegenmaßnahmen
-| Risiko | Gegenmaßnahme |
-| --- | --- |
-| Externe Action wird verändert | Pinnen auf vollständige Commit-SHA, Updates kontrollieren |
-| Untrusted PR-Code mit Secrets | Secrets/Schreibrechte aus PR-Testjobs fernhalten |
-| pull_request_target + Checkout des PR-Head | Nicht tun; Privilegien und untrusted Code strikt trennen |
-| Direkte Shell-Auswertung von PR-Titel | Eingaben nicht unescaped in Shell-Quelltext interpolieren |
-| Self-hosted Runner auf fremden PRs | Isolieren bzw. für untrusted PRs vermeiden |
-| Falsche Runner-/Cache-Vertrauensannahme | Artefakte und Caches als möglicherweise manipulierbar behandeln |
-| Dauerhafte Cloud-Zugänge | Bei Eignung OIDC mit kurzlebigen Berechtigungen |
-
-## Reviews vor Änderungen an Workflows
-1. Prüfen, welcher **event**-Trigger die Datei ausführt.
-2. Effektive Token-Rechte auf Workflow- und Job-Ebene bestimmen.
-3. Herkunft und Pinning jeder Fremd-Action prüfen.
-4. Testen, ob untrusted Quellcode jemals mit privilegierten Rechten läuft.
-5. Veröffentlichungskontext (Tag, Environment, Genehmigung) separat prüfen.
-
-## Troubleshooting
-**Workflow läuft nicht:** Syntax, Pfad, branch filter, erforderliche Berechtigung, deaktivierte Actions. **PR-Checks fehlen:** event, Statusnamen, Runner-Verfügbarkeit. **Release scheitert:** Environment-Regeln, Token-Scopes, restriktives Ruleset, Triggerref und Tag.
-
-## Nicht verwechseln
-Ein grüner Workflow bestätigt ausschließlich die implementierten Checks. Er beweist weder sicheren Quellcode noch die Abwesenheit von kompromittierten Dependencies.
-
-## Überarbeitetes CMake-CI-Beispiel mit vollständigem SHA-Pinning
+## CMake-CI-Beispiel mit vollständigem SHA-Pinning
 
 Für ein **öffentliches C++-/CMake-Repository** mit GitHub-gehostetem Runner kann dieser Entwurf als Startpunkt dienen. **Nicht** ungeprüft in das Profil-Repository kopieren: Dort liegt kein CMake-Projekt. Die gezeigte Checkout-SHA wurde gegen GitHubs Tag `actions/checkout v6.0.0` geprüft; die Version muss später gepflegt werden.
 
@@ -76,9 +42,35 @@ jobs:
 
 **Voraussetzungen:** CMakeLists.txt im Repo-Root, Tests per `enable_testing()`/`add_test` registriert und für die benötigten Compiler/Bibliotheken eine funktionierende Runner-Umgebung. `--no-tests=error` verhindert das falsche „grün“ bei null gefundenen Tests. Ein realer Produktworkflow sollte **Buildmatrix, Abhängigkeiten, Cache, Lint und Security-Checks** projektbezogen ergänzen; kein blindes Kopieren.
 
-### Warum das vorherige Beispiel unzureichend war
+## Rechte des GITHUB_TOKEN
+- Repositoryweit **permissions: contents: read** oder bei Bedarf **permissions: {}**.
+- Schreibrechte für einzelne Jobs gezielt erweitern; Testjobs benötigen gewöhnlich keine Schreibrechte.
+- PATs möglichst vermeiden; für automatisierte Änderungen geeignete GitHub-App-Rechte prüfen.
+- **persist-credentials: false** bei Checkout, wenn nach dem Checkout keine authentifizierten Git-Operationen notwendig sind.
 
-Der ursprüngliche didaktische `git diff --check HEAD^ HEAD`-Job war nicht robust: Für den ersten Commit fehlt **HEAD^**; ein automatisch erzeugter Merge-Commit aus einem Pull Request kann andere Parent-Beziehungen haben. Er wurde bewusst durch einen fachlich passenden CI-Entwurf ersetzt. Für Markdown-Repositories bietet sich eine gesonderte, getestete Link-/Lint-Prüfung an.
+## Angriffsflächen und Gegenmaßnahmen
+| Risiko | Gegenmaßnahme |
+| --- | --- |
+| Externe Action wird verändert | Pinnen auf vollständige Commit-SHA, Updates kontrollieren |
+| Untrusted PR-Code mit Secrets | Secrets/Schreibrechte aus PR-Testjobs fernhalten |
+| pull_request_target + Checkout des PR-Head | Nicht tun; Privilegien und untrusted Code strikt trennen |
+| Direkte Shell-Auswertung von PR-Titel | Eingaben nicht unescaped in Shell-Quelltext interpolieren |
+| Self-hosted Runner auf fremden PRs | Isolieren bzw. für untrusted PRs vermeiden |
+| Falsche Runner-/Cache-Vertrauensannahme | Artefakte und Caches als möglicherweise manipulierbar behandeln |
+| Dauerhafte Cloud-Zugänge | Bei Eignung OIDC mit kurzlebigen Berechtigungen |
+
+## Reviews vor Änderungen an Workflows
+1. Prüfen, welcher **event**-Trigger die Datei ausführt.
+2. Effektive Token-Rechte auf Workflow- und Job-Ebene bestimmen.
+3. Herkunft und Pinning jeder Fremd-Action prüfen.
+4. Testen, ob untrusted Quellcode jemals mit privilegierten Rechten läuft.
+5. Veröffentlichungskontext (Tag, Environment, Genehmigung) separat prüfen.
+
+## Troubleshooting
+**Workflow läuft nicht:** Syntax, Pfad, branch filter, erforderliche Berechtigung, deaktivierte Actions. **PR-Checks fehlen:** event, Statusnamen, Runner-Verfügbarkeit. **Release scheitert:** Environment-Regeln, Token-Scopes, restriktives Ruleset, Triggerref und Tag.
+
+## Nicht verwechseln
+Ein grüner Workflow bestätigt ausschließlich die implementierten Checks. Er beweist weder sicheren Quellcode noch die Abwesenheit von kompromittierten Dependencies.
 
 ## Trust Boundaries: Welche Daten gelten als fremd?
 
