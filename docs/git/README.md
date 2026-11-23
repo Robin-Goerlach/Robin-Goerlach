@@ -36,3 +36,45 @@ Git ist ein **verteiltes Versionsverwaltungssystem**; GitHub ist ein möglicher 
 - [Pro Git (offizielles frei verfügbares Buch)](https://git-scm.com/book/en/v2)
 - [Git-Referenz](https://git-scm.com/docs)
 - [GitHub Git Handbook](https://docs.github.com/en/get-started/using-git/about-git)
+
+## Kompetenzstufen und Lernpfad
+
+### Stufe 1: Sicher im Alltag (ca. 60–90 Minuten Übung)
+1. [Basics](GIT-BASICS.md): Worktree, Index und Commits in einem Wegwerf-Repo unterscheiden.
+2. [Configuration](GIT-CONFIGURATION.md): Identität und Zeilenenden kontrollieren.
+3. [Cheatsheet](GIT-CHEATSHEET.md): fünf diagnostische Befehle auswendig nutzen.
+
+**Erfolgskriterium:** Du erkennst ohne Raten, welche Dateien der nächste Commit enthalten wird und ob ein Push den richtigen Remote betrifft.
+
+### Stufe 2: Zusammenarbeit und autonome Änderungen
+1. [Branches](GIT-BRANCHING.md): Remote-Tracking und parallele Worktrees.
+2. [Merge/Rebase](GIT-MERGE-REBASE.md): Konflikte kontrolliert lösen.
+3. [Workflows](GIT-WORKFLOWS.md): Unterschiede zwischen direktem main und Feature-PR kennen.
+
+**Erfolgskriterium:** Du kannst einen fehlgeschlagenen Push ohne Force-Push behandeln und einen ungeteilten Branch ohne Datenverlust umstrukturieren.
+
+### Stufe 3: Veröffentlichungen und Rückfallstrategien
+1. [Tags](GIT-TAGS.md): Annotated Tags und vertrauenswürdige Release-Referenzen.
+2. [Recovery](GIT-RECOVERY.md): Revert, Reflog und Bundle-Restore.
+3. [GitHub Release](../github/GITHUB-RELEASES.md) und [Release Security](../security/GITHUB-RELEASE-SECURITY.md).
+
+**Erfolgskriterium:** Du kannst eine veröffentlichte Fehländerung durch einen neuen Commit neutralisieren und ein lokales Bundle in ein neues Verzeichnis klonen.
+
+## Wichtige Unterschiede zu anderen Git-Clients
+
+- **Git for Windows**: eigene Git-Binaries, Credential-Manager, Zeilenenden und Konfiguration.
+- **WSL/Linux**: POSIX-Pfade, Dateirechte, Shell-Verhalten und SSH-Agent.
+- **GitHub Desktop/IDE**: abstrahieren die Befehle, aber nicht deren Auswirkungen.
+- **GitHub Repository Settings**: werden **nicht** durch `git config` oder lokale Branches verwaltet.
+
+### Typische Migrationsfallen
+
+Ein auf Windows erstellter Branch kann unter WSL Dateirechte, Zeilenenden und ausführbare Bits anders behandeln. In gemischten Projekten **.gitattributes**, `git ls-files --eol`, `git diff --summary` und `git config --show-origin` prüfen. Vor Massenrenormalisierung einen eigenen Branch erstellen.
+
+## Didaktisches Prinzip
+
+Alle gefährlichen Befehle werden nur in **Wegwerf-Repositories** erklärt; in produktiven Projekten erst Status, Diff, Backup und Rückfallmöglichkeit prüfen. Beispiele sind keine Aufforderung, die SASD-Repositories ungeprüft zu verändern.
+
+## Pflege und Quellen
+
+Die Quellen sind bevorzugt offizielle Git-Handbuch- und Referenzseiten. Prüfe bei gravierenden Versionswechseln die lokale Ausgabe von `git --version` und die zur Installation passende Dokumentation. Besonders `pull`-, Rebase- und Credential-Standards sind bewusst projektabhängig.
