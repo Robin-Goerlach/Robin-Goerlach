@@ -1,8 +1,8 @@
 # GitHub Security Checklist – Persönliche Entwicklung und SASDGMBH
 
-**Version:** 1.0 (Entwurf)  
+**Version:** 2.0 (ausführlich überarbeitete Prüfvorlage)  
 **Stand:** 2026-11-23  
-**Vorgeschlagener Ablageort:** `Robin-Goerlach/Robin-Goerlach/docs/security/GITHUB-SECURITY-CHECKLIST.md`  
+**Tatsächlicher Ablageort:** `Robin-Goerlach/Robin-Goerlach/docs/security/GITHUB-SECURITY-CHECKLIST.md`  
 **Geltungsbereich:** Persönliches GitHub-Konto, einzelne SASD-Repositories, GitHub Actions und offizielle Veröffentlichungen über SASDGMBH.
 
 > **Ziel:** Einen möglichst sicheren, aber für einen Einzelentwickler praktikablen Workflow erreichen. Diese Liste ist eine **Prüfvorlage**, kein Auditbericht. Unmarkierte Punkte sind **nicht automatisch Mängel**. Funktionen können vom Repository-Typ, GitHub-Tarif und der jeweiligen Oberfläche abhängen.
@@ -283,4 +283,223 @@ Offizielle Dokumentation (Funktionsumfang und Menünamen können sich ändern):
 
 ---
 
-**Nächster Arbeitsschritt:** Die Checkliste zunächst als Dokument freigeben und danach Punkt für Punkt anhand der tatsächlichen GitHub-Einstellungen durchgehen. Das reine Anlegen der Markdown-Datei ändert **keine** GitHub-Sicherheitseinstellungen.
+**Arbeitsweise:** Diese Datei ist bereits auf GitHub veröffentlicht. Die Prüfung konkreter Einstellungen und Änderungen daran sind separate Arbeitsschritte. Das Anlegen oder Überarbeiten der Markdown-Datei ändert **keine** GitHub-Sicherheitseinstellungen.
+
+## 17. Praktische Audit-Playbooks (ohne Konfigurationsänderung)
+
+Ein Audit besteht aus **Zugriff auf den tatsächlichen Zustand**, **Kontrolle der Wirksamkeit**, **Risikoentscheidung** und **Nachprüfung**. Ein auf GitHub veröffentlichtes Dokument kann all dies nicht allein durchführen.
+
+### 17.1 Lokale Git-Bestandsaufnahme (P0/P1)
+
+```bash
+git remote -v
+git branch -vv
+git fetch origin
+git status -sb
+git log --oneline --decorate -10
+git ls-remote --heads origin
+git ls-remote --tags origin
+```
+
+**Erwartet:** `origin` ist das beabsichtigte Repository; der eigene Branch ist bekannt; `main` hat eine nachvollziehbare Historie. Diese Befehle zeigen **keine** GitHub-Rulesets, Security-Alerts oder Accountrechte. Für eine reine Lesekontrolle kann `git fetch` die lokalen Remote-Tracking-Referenzen aktualisieren, aber keine versionierten Worktree-Dateien überschreiben.
+
+### 17.2 Optional: GitHub CLI lesend verwenden
+
+Nur wenn `gh` lokal installiert, mit dem richtigen Account authentifiziert und für den betroffenen Scope ausreichend berechtigt ist:
+
+```bash
+gh auth status
+gh repo view OWNER/REPO --json name,owner,visibility,defaultBranchRef
+gh api repos/OWNER/REPO/rulesets
+```
+
+**Unterschied zwischen Daten und Schlussfolgerung:** Eine leere Ruleset-Liste sagt nichts Verlässliches über **klassische Branch-Protection** und nicht zugängliche Organisationsrichtlinien. Ein 403/404 bei einem nur mit Administrator-Token lesbaren Endpunkt bedeutet **„nicht verifizierbar mit diesen Rechten“**, nicht „deaktiviert“.
+
+**Nicht** aus `gh auth status` komplette Token-Informationen oder Fehlerlogs mit Secrets in öffentliche Berichte kopieren.
+
+### 17.3 Main-Branch-Schutz nachweisen
+
+| Feld | Zu erfassende Information |
+| --- | --- |
+| Repository + Standardbranch | z. B. `OWNER/REPO`, `main` |
+| Regeln | Restrict deletions, Block force pushes |
+| Enforcement | **Active**, nicht nur konfiguriert |
+| Zielbedingung | Default branch / Include / Exclude |
+| Bypass | Rollen, Apps, Ausnahmen |
+| Klassische Protection | Vorhanden/keine Zugriffsberechtigung/gesichtet |
+| Funktionstest | Normale Pushes funktionieren weiterhin |
+| Nachweis | Datum, Settings-Link/privater Screenshot |
+| Nächste Prüfung | Bei Rechte-/Ruleset-Änderung |
+
+**Kein** absichtlicher Force-Push oder Löschversuch auf `main` als Test.
+
+### 17.4 Private Vulnerability Reporting nachweisen
+
+1. Öffentliches Repository und Berechtigung zur Einstellung prüfen.
+2. **Settings → Advanced Security** bzw. aktuelle Code-Security-Seite öffnen.
+3. **Private vulnerability reporting**-Zustand lesen; **Enabled** nachweisen.
+4. **Security → Advisories** aufrufen; für externe Forscher sollte nach Aktivierung ein vertraulicher Meldeweg möglich sein.
+5. `SECURITY.md` auf korrekte, **tatsächlich existierende** Kontaktangaben prüfen.
+6. Zuständigkeit für den Eingang und Bearbeitungs-/Antwortprozess klären.
+7. Ergebnis mit Datum protokollieren – keine künstliche Test-Schwachstelle öffentlich posten.
+
+Eine aktivierte Funktion ist noch keine Zusage über Antwortfristen oder Wartungsdauer.
+
+### 17.5 Dependency-Sicht gegen reale Projektdateien prüfen
+
+Für C++/CMake beispielhaft **nur lesend**:
+
+```bash
+git ls-files CMakeLists.txt '**/CMakeLists.txt' '*.cmake'   vcpkg.json conanfile.py conanfile.txt .gitmodules
+git submodule status
+git grep -nE 'FetchContent_|ExternalProject_|find_package\(' -- '*.cmake' CMakeLists.txt || true
+```
+
+Die Erkennung ist absichtlich **heuristisch**. Der `git grep`-Aufruf erfasst je nach Pfadmuster keine verschachtelten CMakeLists oder dynamischen Includes; auch nicht initialisierte Submodule können Sonderfälle erzeugen. Keine vollständige Materialinventur allein aus diesen Kommandos behaupten.
+
+Eine prüfbare Tabelle enthält: **Dependency, tatsächliche Version/Commit, Herkunft, Lizenz, Nutzung im Release, im Dependency Graph sichtbar?, Updatepfad, letzter Audit**.
+
+**C++-Sonderfall:** GitHub unterstützt bestimmte **vcpkg**-Version-Updates, aber nicht die vollständige Erkennung beliebiger CMake-/Conan-/FetchContent-Abhängigkeiten. Im Audit Version Updates, Security Updates und Dependency Graph als getrennte Funktionen behandeln.
+
+### 17.6 Actions- und Agentenprüfung
+
+Bei jedem Workflow:
+- Welcher **Event-Trigger**? `push`, `pull_request`, `pull_request_target`, `workflow_run`, `workflow_dispatch`?
+- Welche **globalen und jobbezogenen `permissions`**?
+- Welcher Code wird ausgecheckt? Wird fremder PR-Code mit privilegierten Credentials ausgeführt?
+- Welche Dritt-Actions werden verwendet, sind sie auf **vollständige Commit-SHA** gepinnt?
+- Sind `secrets`, `environment`, OIDC und Runner vertrauenswürdig eingegrenzt?
+- Ist der Build tatsächlich ausgeführt worden? **Wie viele Tests** liefen?
+- Können Codex oder andere Agenten die Workflow-Dateien im Auftrag verändern?
+- Gibt es eine klare Trennung zwischen CI und Publishing?
+
+**Nachweis:** Workflow-Datei, Trigger/Commit, Run-URL, effektive Rechte (soweit einsehbar), Testanzahl, Abweichungen.
+
+## 18. Kontrollregister: Status, Priorisierung und Risikoakzeptanz
+
+Diese Checkliste beschreibt Kontrollen. Für tatsächliche Prüfungen sollte ergänzend ein **privates Kontrollregister** verwendet werden. Es darf nie vertrauliche Details in einem öffentlichen Profil-Repository preisgeben.
+
+### 18.1 Statussemantik
+
+| Status | Bedeutet | Was zusätzlich erforderlich ist |
+| --- | --- | --- |
+| `UNGEPRÜFT` | Kein hinreichender aktueller Nachweis | Prüftermin |
+| `ERFÜLLT` | Kontrollziel wurde verifiziert | Datum, Geltungsbereich, Nachweis |
+| `OFFEN` | Anforderung nicht erfüllt oder Lücke erkannt | Abhilfe, Owner, Frist |
+| `N/A` | Im konkreten Kontext nicht anwendbar | Begründung |
+| `NICHT VERIFIZIERBAR` | Fehlende Berechtigung oder technische Einsicht | Nachprüfung/Eskalation |
+| `RISIKO AKZEPTIERT` | Bewusste Abweichung | Entscheider, Gründe, Ablaufdatum |
+
+**Regel:** `UNGEPRÜFT` ist kein Fehlerbefund, aber **nicht** gleich `ERFÜLLT`. `RISIKO AKZEPTIERT` ist keine Sicherheitsfunktion.
+
+### 18.2 Prüfvorgang mit Kontroll-ID
+
+```text
+Kontroll-ID: GH-SEC-001
+Prüfobjekt: OWNER/REPO
+Profil: DEV|RELEASE
+Kontrollziel: Branch main nicht löschbar/force-pushbar
+Priorität: P0
+Status: UNGEPRÜFT|ERFÜLLT|OFFEN|N/A|NICHT VERIFIZIERBAR|RISIKO AKZEPTIERT
+Ist-Zustand:
+Nachweismethode:
+Nachweisort (geschützt, falls sensibel):
+Prüfdatum:
+Prüfer:
+Befund / Auswirkung:
+Gegenmaßnahme:
+Verantwortlicher:
+Frist / Ablauf der Ausnahme:
+Nächster Review:
+```
+
+### 18.3 Prioritätsentscheidung (kein starres CVSS-Mapping)
+
+**P0:** Gefahr für Accountkontrolle, Release-Integrität, Produktions-Secrets, unautorisierte Schreibrechte oder kritische Sicherheitsfunktionen vor Veröffentlichung.  
+**P1:** Risiken, die die Erkennung und Eindämmung von Schwachstellen oder die Wartbarkeit beeinträchtigen.  
+**P2:** Verbesserungen der Verteidigungstiefe, zusätzlichen Nachweisführung oder langfristigen Automatisierung.
+
+Die Priorität richtet sich nach **Exposition und Wirkung**. Für einen öffentlich erreichbaren API-Server ist z. B. eine fehlende Authentisierung unter Umständen P0, unabhängig davon, ob sie im generischen Dokument unter „Codeanalyse“ steht.
+
+### 18.4 Ausnahmen sind befristet
+
+```text
+Abweichung:
+Warum ist die empfohlene Maßnahme derzeit nicht umsetzbar?
+Risiko und Auswirkungen:
+Ausgleichsmaßnahmen:
+Entscheider und Datum:
+Spätestes Neubewertungsdatum:
+Technischer Nachweis, dass die Ausnahme nicht größer geworden ist:
+```
+
+Bei ernstem verbleibendem Risiko darf ein RELEASE nicht allein durch einen formalen „akzeptiert“-Vermerk freigegeben werden; Freigabeverantwortung und Konsequenzen sind getrennt zu prüfen.
+
+## 19. Incident-Response-Ablauf für GitHub-Projekte
+
+### 19.1 Verdacht: Account-/Token-Kompromittierung
+
+**Eindämmung vor Bereinigung:** betroffene Credentials sperren/rotieren, neue authentisierte Zugriffe aus sauberer Umgebung vorbereiten, aktive Sessions und installierte Apps kontrollieren. Erst dann Commits, Workflow-Logs, Tags, Releases und geklonte Repositories untersuchen.
+
+**Nicht** zuerst die Historie kosmetisch säubern: Bereits veröffentlichte Schlüssel müssen als kompromittiert betrachtet werden.
+
+### 19.2 Verdacht: kompromittierter CI-Workflow
+
+- Release- und Deployment-Jobs vorsorglich stoppen.
+- Workflow-Revision, Trigger, Runner, Token-Scopes und genutzte Artefakte sichern.
+- Fremd-Actions, Build-Downloads, Caches und Folgeworkflows überprüfen.
+- Mit minimalen Rechten in sauberer Umgebung reproduzieren.
+- Betroffene Veröffentlichungen und Repositories identifizieren.
+
+### 19.3 Vertraulich gemeldete Schwachstelle
+
+1. Eingang intern einordnen, Kontaktweg respektieren.
+2. Ausnutzbarkeit und betroffene unterstützte Versionen untersuchen.
+3. Fix privat planen, Tests/Fuzzing/Regressionsprüfungen ausführen.
+4. Neue sichere Version erstellen.
+5. Advisory, Upgrade-Anleitung und ggf. CVE abgestimmt publizieren.
+6. Nachbereitung und Kontrollverbesserung dokumentieren.
+
+### 19.4 Unerwünschter Commit auf main
+
+Bei normalem Fehler ohne kompromittierte Berechtigungen: `git revert` auf geteiltem `main` bevorzugen. Bei vermutetem Angriff **nicht** nur einen Revert ausführen, sondern kompromittierte Schlüssel/Apps, CI, Releases und externe Integrationen prüfen.
+
+### 19.5 Backup und Wiederherstellung
+
+**Quellcode:** `git bundle` oder Git-Mirror plus unabhängiger Speicher.  
+**GitHub-Metadaten:** Issues, PRs, Releases, Download-Assets, Projekte und relevante Einstellungen separat.  
+**Secrets:** niemals im Klartext als Teil eines öffentlichen oder ungeschützten Backups archivieren.  
+**Nachweis:** Wiederherstellung in eine isolierte Umgebung mit geprüftem Commit, Branches, Tags und benötigten Artefakten.
+
+## 20. Review-Agenda je Monat, Quartal und Release
+
+| Intervall | Aktivität | Erfolgskriterium |
+| --- | --- | --- |
+| Bei Repo-Anlage | Owner/Visibility, Lizenz, Branchschutz, PVR, Berechtigungen | Alle P0-Punkte bewertet |
+| Monatlich | Dependabot, Security Alerts, Actions, PRs | Keine ungeklärten kritischen Befunde |
+| Vierteljährlich | 2FA-Recovery, Tokens/Apps, Rulesets, Backups | Rechte und Restoretest dokumentiert |
+| Vor offiziellem Release | Commit/Tag, CI, Analyse, SBOM/Lizenz, Artefakte | Gateprotokoll freigegeben |
+| Nach Incident | Schlüsselsperrung, Ursachenanalyse, Lessons Learned | Wiederholung erschwert, Nachkontrolle terminiert |
+| Nach GitHub-Funktionsänderung | Einstellungen und Beispiele auf Aktualität prüfen | Dokumentationsstand bestätigt |
+
+## 21. Freigabeentscheidung: bewusst klein anfangen
+
+Für öffentliche persönliche DEV-Repositories sind **direkte main-Commits nicht automatisch unsicher**, wenn Basisstand, Diff und Tests kontrolliert werden. Minimaler zusätzlicher Nutzen: aktives Ruleset für Löschung/Force-Push, sichere Kontoanmeldung, begrenzte Tokenrechte und ein vertraulicher Security-Meldeweg.
+
+Für offizielle SASDGMBH-Releases muss die Freigabe stattdessen nachweisbar sein: getestet, zurückverfolgbar, rechtlich zugeordnet und mit einem realen Patch-/Incident-Prozess verbunden. **Eine zweite menschliche Prüfung nicht vortäuschen**, solange du alleiniger Maintainer bist.
+
+## 22. Dokumentenpflege
+
+- Dieses Dokument ist ein **lebendes Prüfschema**, kein statischer Zertifizierungsbericht.
+- GitHub-Menünamen, Planumfang und Unterstützungslisten mindestens bei relevanten Änderungen erneut mit offiziellen Quellen vergleichen.
+- Konkrete **Ist-Zustände** gehören in ein separates, datiertes Register; nicht in pauschale Beispieltexte.
+- Die persönliche Sammlung unter `Robin-Goerlach/Robin-Goerlach` definiert keine automatischen Einstellungen für `SASDGMBH`-Repositories.
+- Verbindliche Anforderungen des **SASD-Development-Standard** haben getrennte Versions- und Freigabeprozesse.
+
+**Quellen zur Vertiefung:**
+- [GitHub Rulesets und Durchsetzung](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
+- [Private Vulnerability Reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository)
+- [GitHub Secure Use of Actions](https://docs.github.com/en/actions/reference/security/secure-use)
+- [Dependency Graph Ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems)
+- [Dependabot Ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
+- [CodeQL for Compiled Languages](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/codeql-for-compiled-languages)
