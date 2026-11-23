@@ -37,3 +37,17 @@ Technology is best when it brings people together. I’m always open to connecti
 ---
 
 Thank you for stopping by! 🎉 I hope my profile inspires you as much as the tech world inspires me.
+
+---
+
+## 📚 Documentation: Git, GitHub & Security
+
+A growing collection of practical guides, CLI examples, workflows and reusable security checklists (currently in German):
+
+- **[Documentation index](docs/README.md)** – overview and navigation.
+- **[Git handbook](docs/git/README.md)** – branches, merge/rebase, tags, recovery and daily workflow.
+- **[GitHub handbook](docs/github/README.md)** – repositories, GitHub Actions, pull requests, rulesets, releases and Codex.
+- **[Security handbook](docs/security/README.md)** – account, repository and release security.
+- **[GitHub Security Checklist](docs/security/GITHUB-SECURITY-CHECKLIST.md)** – repeatable checks for personal DEV projects and official releases.
+
+These documents describe practices and do not automatically apply security settings to other repositories.
