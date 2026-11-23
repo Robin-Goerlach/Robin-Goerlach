@@ -60,4 +60,90 @@ Für C/C++ Eignung von CodeQL, compiler warnings, clang-tidy/cppcheck, AddressSa
 
 Nur den tatsächlich überprüften Status ändern. Bei nicht lesbarem GitHub-API-Endpunkt keine Vermutung über den Sicherheitszustand ableiten.
 
+## Vertiefung: Security Review nach Bedrohungsfläche
+
+### A. Kontrollen für jedes öffentliche Repository
+
+| Kontrollgruppe | Minimalziel | Technischer Nachweis |
+| --- | --- | --- |
+| Eigentümer und Zugriff | Nur benötigte Maintainer/App-Rechte | GitHub Settings / berechtigte Rollen |
+| Default-Branch | Lösch- und Force-Push-Schutz | Ruleset: Ziel + **Active** + Regeln |
+| Vertrauliche Meldung | GitHub PVR oder anderer realer Kanal | Einstellungszustand + SECURITY.md |
+| Secrets | Nicht in Code, Logs oder Artefakten | Scanner-Abdeckung + manuelle Prüfung |
+| Abhängigkeiten | Erkannt und katalogisiert | Graph + Paketliste |
+| Actions | Kein untrusted Code mit Release-Secrets | Trigger/Permissions/Runner-Review |
+| Backup | Restore nachgewiesen | Testdatum + Wiederherstellungsergebnis |
+
+### B. CodeQL bei C/C++ korrekt verstehen
+
+GitHub unterstützt für C/C++ inzwischen auch **build-mode `none`** bei Default Setup. Das ist schnell zu aktivieren und erfordert keinen Build, kann aber andere Codeerfassung liefern als **`autobuild`** oder **`manual`**. Bei präzisen Build-Flags, Generierung oder speziellen Plattform-Makros ist die **tatsächlich analysierte Codebasis** entscheidend.
+
+**Prüfablauf:**
+1. Unter **Security → Code scanning** aktuellen Zustand und letzte erfolgreiche Analyse prüfen.
+2. Bei neuem Setup `none` als möglichen Einstieg bewerten, nicht pauschal als unmöglich abtun.
+3. Bei CMake-Systemen analysierte Quellen, Header, Präprozessorzweige, Plattformen und generierten Code prüfen.
+4. Relevante Alerts triagieren und Ergebnisse versioniert nachvollziehbar halten.
+5. Ergänzende `clang-tidy`, Compiler-Warnungen, Sanitizer und Fuzzing verwenden – CodeQL allein reicht nicht.
+
+Quelle: [CodeQL for compiled languages](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/codeql-for-compiled-languages).
+
+### C. Bedrohungsflächen bei unterschiedlichen SASD-Produkten
+
+**Terminal-UI-Toolkit (C++):** Terminal-Escape-Sequenzen, Steuerzeichen, fehlerhafte UTF-8-Eingaben, Speicher-/Pufferfehler, Größe/Resize, Eingabeparsing, Ressourcenfreigabe.  
+**Firewall-/Routing-Appliance:** Verifizierung von Konfigurationsänderungen, Least Privilege, atomare Änderungen mit Rollback, sichere Verwaltung ohne permanenten Webserver, Logs/IDS-Integrität.  
+**API-Server:** Authentisierung/Autorisierung, Inputvalidierung, Rate-Limits, Secret-Verwaltung, sichere Defaults, Audit-Logging.  
+**Parser/Crawler:** Bösartige Eingabedaten, Ressourcenerschöpfung, SSRF, Deserialisierung, Dateipfade, externe Inhalte.
+
+Diese Fragen definieren **Testideen**, keine Behauptung, dass ein Projekt solche Schwachstellen besitzt.
+
+### D. SECURITY.md und Private Vulnerability Reporting
+
+**SECURITY.md** dokumentiert, wie Nutzer Sicherheitsprobleme vertraulich melden und welche Versionen betreut werden. **Private Vulnerability Reporting** ist eine eigenständige GitHub-Einstellung je öffentliches Repository. Ein README-Link ersetzt den aktivierten Meldeweg nicht.
+
+Ein präziser Text könnte lauten:
+
+> Bitte melde vermutete Sicherheitslücken über die Funktion „Report a vulnerability“ im Bereich **Security → Advisories**, sofern sie für dieses Repository aktiviert ist. Veröffentliche Details nicht als öffentliches Issue.
+
+**Achtung:** Diesen Text **erst verwenden**, wenn die Funktion im konkreten Repository nachweislich aktiv ist. Alternativ muss ein tatsächlich überwachter vertraulicher Kanal benannt werden. Keine erfundenen `security@`-Adressen.
+
+### E. Pull-Request-Angriffe und Branchschutz
+
+Ein PR von einem Fork ist eine fremde Codeänderung, nicht nur ein harmloser Textvorschlag. Gefährliche Stellen:
+- Buildskript zieht ausführbaren Code aus externen Quellen.
+- Actions job bekommt schreibendes GITHUB_TOKEN.
+- PR-Head wird mit `pull_request_target` oder einem privilegierten Folge-Workflow ausgeführt.
+- Kompromittierter Cache oder Artefakt wird in einem Release-Job erneut verwendet.
+- Schadcode wird durch ein gültig signiertes Commit eingebracht.
+
+Mindestmaßnahmen: `permissions: contents: read` für Tests, Full-SHA-Pinning von Fremd-Actions, untrusted Eingaben nicht in Shell-Code interpolieren und Release-Gates separat konfigurieren.
+
+### F. Was das Security-Dashboard nicht beweist
+
+- „0 Alerts“ kann bedeuten, dass der Scanner **nichts** abdeckt.
+- „PVR configured“ sagt nichts über zeitnahe Reaktion der Maintainer aus.
+- „Tests passed“ kann nur eine kleine Plattformmatrix oder null Tests bedeuten.
+- „Branch Protection“ kann über Bypass-Permissions umgangen werden.
+- „Verified commit“ bestätigt eine Signaturkonstellation, nicht eine unabhängige Sicherheitsprüfung.
+
+## Prüfprotokoll für ein Repository
+
+```text
+Repository / Sichtbarkeit:
+Prüfdatum / Prüfer:
+Schutzprofil DEV|RELEASE:
+Default-Branch / aktive Regeln:
+Berechtigungen / App-Review:
+Security Policy / PVR:
+Secret Scanning / Push Protection:
+Dependency Graph / Coverage-Lücken:
+Actions-Trigger / effektive Token-Rechte:
+Code Scanning / getestete Plattformen:
+Backups / Restoretest:
+Offene Befunde (P0/P1/P2):
+Risikoakzeptanz: wer, warum, bis wann?
+Nächste technische Aktion:
+```
+
+**Keine** Tokenwerte, Recovery-Codes oder internen Netzwerkdetails in öffentliche Nachweise aufnehmen.
+
 Quellen: [Security Quickstart](https://docs.github.com/en/code-security/getting-started/quickstart-for-securing-your-repository), [Rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets), [Private Vulnerability Reporting](https://docs.github.com/en/code-security).
