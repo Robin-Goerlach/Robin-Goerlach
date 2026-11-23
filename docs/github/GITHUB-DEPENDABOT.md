@@ -47,4 +47,74 @@ GitHub kann Action-Referenzen aktualisieren; bei Pinnen auf volle SHAs die Revis
 
 **Warnung:** Nicht jedes Ökosystem wird von GitHub gleich umfassend erkannt. Vor dem Eintrag eines package-ecosystem die aktuell unterstützte Syntax und Voraussetzungen prüfen.
 
+## Erweiterte C++-Analyse: was GitHub heute erkennt
+
+**Präzisierung:** GitHub führt `vcpkg` inzwischen als eigenes Dependabot-`package-ecosystem` auf. Das erlaubt **bestimmte** Versionsupdates im Zusammenhang mit einem `vcpkg.json`-Manifest, zum Beispiel die Aktualisierung von `builtin-baseline`. Das bedeutet aber **nicht**, dass automatisch jede über CMake, `FetchContent`, `find_package`, Conan oder manuelle Downloads eingebundene Bibliothek erkannt wird.
+
+Die aktuelle Übersicht ist [GitHub: Dependabot supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories). Vor Aktivierung eines neuen Package-Ökosystems unterscheiden zwischen **Version Updates**, **Security Updates** und **Dependency-Graph-Abdeckung**.
+
+### Beispiel: GitHub Actions plus vcpkg
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  # Nur aktivieren, wenn das Projekt tatsächlich vcpkg.json verwendet
+  # und GitHubs aktuelle vcpkg-Unterstützung den gewünschten Zweck erfüllt.
+  - package-ecosystem: vcpkg
+    directory: /
+    schedule:
+      interval: monthly
+```
+
+Dieses Beispiel ist **keine** universelle Konfiguration für das SASD-UI-Toolkit. Erst manifestbasierten Istzustand und Kompatibilität der verwendeten GitHub-Version prüfen. Im bestehenden Repository mit einer `.github/dependabot.yml` Änderungen **ergänzen**, nicht ohne Not überschreiben.
+
+## Wie man die tatsächliche Abdeckung beweist
+
+1. Liste der tatsächlichen Fremdkomponenten aus Build-Dateien, Lockfiles, Submodulen, Downloads und Build-Skripten erstellen.
+2. **Insights → Dependency graph** und **Settings → Advanced Security** prüfen.
+3. Pro Komponente feststellen: **im Graph vorhanden?** Welche Version und Quelle?
+4. Alerts/Version-Updates als separate Zustände verifizieren.
+5. Für fehlende Abdeckung ergänzende Tools oder manuelle Inventarisierung einsetzen.
+6. In der Dokumentation **unbekannte Abdeckung** als offen, nicht als „keine Risiken“ kennzeichnen.
+
+### Abhängigkeitsinventar (Muster)
+
+| Komponente | Quelle | Tatsächliche Version | Im GitHub Graph? | Lizenz | Updateweg |
+| --- | --- | --- | --- | --- | --- |
+| CMake-Paket A | `find_package` | prüfen | prüfen | prüfen | manuell/Manager |
+| Bibliothek B | `FetchContent` | Commit/Tag | prüfen | prüfen | eigener PR |
+| Paket C | `vcpkg.json` | Manifest/Baseline | prüfen | prüfen | Dependabot nach Abdeckung |
+| Actions | `.github/workflows` | SHA | prüfen | prüfen | Dependabot/Review |
+
+## Security Alerts richtig priorisieren
+
+Nicht nur CVSS-Schweregrad betrachten. Wichtige zusätzliche Fragen:
+- Ist die gefährdete Funktion **wirklich erreichbar**?
+- Wird das betroffene Modul in den Release-Artefakten eingebunden?
+- Ist ein Exploit öffentlich bekannt und passt das Angriffsmodell?
+- Welche unterstützten Versionen sind betroffen?
+- Kann ein Update API/ABI, Datenformate oder Buildsystem brechen?
+- Ist eine temporäre Mitigation erforderlich, bevor ein Fix verfügbar ist?
+
+Bei einer als „nicht betroffen“ geschlossenen Alertmeldung **Begründung und Nachweis** dokumentieren. Veraltete grüne Dashboards sind kein Ersatz für die Prüfung neuer Upstream-Advisories.
+
+## Bibliotheken außerhalb der GitHub-Erkennung
+
+Für C++-Toolkits gegebenenfalls:
+- explizite Dependency-Liste mit Herkunft/Version/Lizenz;
+- deterministische Lock- und Baseline-Dateien;
+- Build-/SBOM-Bericht;
+- SCA-Scanner passend zum Paketmanager;
+- Updates in isolierten Branches mit Testmatrix;
+- regelmäßige Prüfung von Hersteller-/Projekt-Sicherheitsmeldungen.
+
+## Warum Dependabot nicht alles automatisch lösen darf
+
+Ein Update-PR kann eine kompromittierte Release-Version, neue transitive Abhängigkeiten oder Lizenzänderungen enthalten. Deshalb müssen auch automatisch erzeugte Updates **Diff-, Quellen-, Lizenz- und CI-Prüfung** durchlaufen. Nie alle Dependency-PRs allein aufgrund eines grünen Versionssignals blind mergen.
+
 Quellen: [Dependabot Version Updates](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference), [Dependabot Alerts](https://docs.github.com/en/code-security/dependabot/dependabot-alerts), [Supported Ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems).

@@ -45,4 +45,82 @@ Sie sind kein Backup, kein Schadcode-Scanner und kein Schutz gegen kompromittier
 ## Typische Fehlkonfigurationen
 **Require PR** bei direktem main-Workflow: Push wird blockiert. **Require status checks** mit nicht existierendem Check: Merge kann blockieren. **Restrict updates**: kann auch normale Updates untersagen. **Bypass für Admins**: Schutz gilt nicht zwingend für alle.
 
+## Technische Entscheidung: gezielte minimale Schutzregeln statt Sicherheits-Theater
+
+Es gibt mehrere Mechanismen, die **parallel** wirken können:
+
+1. **Klassischer Branch Protection Rule:** ältere, einzelne Branch-Regel.
+2. **Branch Ruleset:** Regelsatz mit Zielauswahl und möglicher Durchsetzung.
+3. **Tag Ruleset:** kontrolliert bestimmte Tag-Operationen.
+4. **Organisationsregeln:** können zusätzliche Grenzen setzen.
+5. **GitHub-Rechte und Apps:** legen unabhängig davon fest, wer überhaupt pushen darf.
+
+**Wichtig:** Die API-Liste mit `[]` zeigt nur, dass über den abgefragten Repository-Ruleset-Endpunkt keine Rulesets zurückgegeben wurden; daraus folgt **nicht**, dass keinerlei klassischer Branchschutz existiert oder dass Konto/Organisation komplett ungeprüft sind.
+
+## Schritt-für-Schritt-Plan für ein persönliches Repo
+
+### Vor der Einrichtung
+- Repository und Eigentümer auf GitHub kontrollieren.
+- Prüfen, ob `main` wirklich Default-Branch ist.
+- Unter **Settings → Rules → Rulesets** und **Settings → Branches** mögliche bestehende Regeln anschauen.
+- Sicherstellen, dass aktuelle Arbeiten gespeichert und ein normaler Push möglich sind.
+
+### Ruleset erstellen
+1. **Settings → Rules → Rulesets → New branch ruleset** öffnen.
+2. Name `main – minimal protection`.
+3. Bei **Enforcement** `Active` wählen; `Disabled` ist keine Durchsetzung. Falls `Evaluate` angeboten wird, ist dies nur eine Auswertung, keine harte Blockade.
+4. **Target branches**: Default-Branch bzw. `main` auswählen; Auswahl vor dem Speichern erneut prüfen.
+5. **Restrict deletions**: aktivieren.
+6. **Block force pushes**: aktivieren.
+7. **Require pull request**, **Restrict updates**, **Require status checks**: für das bewusste DEV-Direkt-push-Profil zunächst **aus**.
+8. Bypass-Liste nur bei begründetem Bedarf; zusätzliche Ausnahmen reduzieren den Schutz.
+9. Speichern und anschließend Status/Target sowie aktive Regeln erneut ansehen.
+
+Die UI kann Pflichtfelder anders gruppieren. Ob ein Schalter im persönlichen Tarif/Repository verfügbar ist, anhand der aktuellen Oberfläche und [GitHub-Dokumentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) kontrollieren.
+
+### Nach der Einrichtung: ohne destruktiven Test
+- Ruleset-Liste auf **Active** prüfen.
+- Zielbranch/Include-/Exclude-Regeln lesen.
+- In den Ruleset-Insights mögliche Blockaden nach einem normalen Test-Commit erkennen.
+- Mit einem **harmlosen** Dokumentationscommit testen, dass reguläre Pushes weiterhin erlaubt sind.
+- **Niemals** durch einen echten Force-Push oder Branch-Löschversuch auf `main` testen.
+
+## Statuschecks, PRs und Merge Queue
+
+Wenn ein RELEASE-Repository `Require status checks` nutzt, müssen die Check-Namen stabil sein und die Check-Quelle ggf. korrekt festgelegt werden. Ein umbenannter oder nicht ausgelöster Workflow kann Merges verhindern. Ein Workflow, der nur auf `push` nach **main** reagiert, liefert nicht zwingend den Check, der **vor** dem Merge gefordert wird.
+
+Bei Merge Queue zusätzlich prüfen, ob die CI `merge_group`-Events abdeckt, wenn dieser Mechanismus aktiviert ist. Sonst wartet die Queue möglicherweise auf Checks, die nie laufen.
+
+## Review-Regeln für eine Person
+
+Eine PR-Pflicht ohne **Pflicht zu fremdem Review** ist technisch nicht identisch mit Vier-Augen-Prinzip. Sinnvolle Zusatzmaßnahmen:
+- Prüfliste für Diff, Tests, Abhängigkeiten, Workflows und Signaturen.
+- Dokumentierte Freigabe vor Releases.
+- CI-Prüfung auf dem zu mergenden Commit.
+- Bei Hochrisikoänderungen eine tatsächliche externe Codeprüfung organisieren, statt formale Selbstfreigabe als unabhängig auszugeben.
+
+## Tags und gefährliche Ausnahmen
+
+Tag-Rulesets können verhindern, dass veröffentlichte `v*`-Tags nachträglich gelöscht oder verschoben werden. Sie sollten vor einer Release-Automatisierung auf deren Auswirkungen geprüft werden. Schreibende Bots, Release-Actions oder Admin-Bypass können in Konflikt mit den Regeln geraten. **Bypass-Rechte sind Teil des Bedrohungsmodells, keine bloße Komfortoption.**
+
+## Dokumentation einer Entscheidung (Vorlage)
+
+```text
+Repository:
+Repository-Typ: DEV | RELEASE
+Default-Branch:
+Ruleset-Name / Ziel / Enforcement:
+Restrict deletions:
+Block force pushes:
+Require PR:
+Require status checks (Namen):
+Restrict updates:
+Bypass-Rollen:
+Klassische Branch Protection:
+Geprüft am / durch:
+Offene Abweichungen und nächste Prüfung:
+```
+
+**Sicherheitsgewinn:** Schutz vor unbeabsichtigter Ref-Löschung und erzwungener Änderung. **Nicht abgedeckt:** Schadcode in legitimen Commits, gestohlene Zugangsdaten für andere Berechtigungen, Fehler in Actions, Abhängigkeitsrisiken und fehlende Offsite-Backups.
+
 Quellen: [Rulesets erstellen](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository), [Rulesets-Regeln](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), [Rulesets verwalten](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/managing-rulesets-for-a-repository).
