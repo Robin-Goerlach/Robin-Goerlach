@@ -1,6 +1,6 @@
 # GitHub Account Security – Zugriff auf das Entwicklerkonto absichern
 
-**Stand:** 2026-11-23 · **Status:** Handbuch / empfohlene Prüfverfahren
+**Stand:** 2026-11-24 · **Status:** Handbuch / empfohlene Prüfverfahren
 
 > Eine Dokumentation ist kein Sicherheitsnachweis. Unbekannte GitHub-Einstellungen bleiben **nicht verifiziert**, bis sie im jeweiligen Konto oder Repository überprüft wurden. Öffentliche Dateien dürfen keine Geheimnisse, Recovery-Codes oder internen Systeme enthalten.
 
@@ -31,6 +31,77 @@ git remote -v
 ~~~
 Diese Befehle zeigen nur lokal relevante Hinweise; **keine privaten Schlüssel, Passphrasen, Recovery-Codes oder Zugangstokens veröffentlichen**. Host-Key-Fingerprint vor erstmaliger Verbindung mit GitHubs offizieller Liste abgleichen. Nicht mehr verwendete Schlüssel vom GitHub-Konto entfernen; Passphrasen und sichere Speichermöglichkeiten prüfen.
 
+## 3.1 SSH-Passphrase bequem nutzen: `ssh-agent` (P1)
+
+Ein **SSH-Schlüssel mit Passphrase** ist sinnvoll, aber niemand möchte sie bei jedem `git pull` oder `git push` erneut eingeben. Ein **SSH-Agent** hält den entschlüsselten Schlüssel nach *einmaliger* Passphrase-Eingabe für weitere SSH-Verbindungen bereit. Die Passphrase wird dabei **nicht in die Git-Konfiguration geschrieben**. Voraussetzung ist, dass der öffentliche Schlüssel bereits im GitHub-Konto hinterlegt ist und das Repository eine SSH-Remote-URL (`git@github.com:OWNER/REPO.git`) verwendet.
+
+### Debian/Linux und WSL – zunächst einfach und zeitlich begrenzt
+
+Im Bash-Terminal, das den Schlüssel `~/.ssh/id_ed25519` verwendet:
+
+```bash
+# Einen Agenten für diese Shell starten (falls noch keiner erreichbar ist).
+eval "$(ssh-agent -s)"
+
+# Passphrase einmal eingeben; Schlüssel höchstens acht Stunden im Agenten halten.
+ssh-add -t 8h ~/.ssh/id_ed25519
+
+# Kontrollieren, welcher Schlüssel angeboten wird.
+ssh-add -l
+ssh -T git@github.com
+```
+
+Während diese Shell mit dem Agenten verbunden ist, fragen normale Git-SSH-Zugriffe üblicherweise nicht erneut nach der Passphrase. **Wichtig:** Der Befehl `eval "$(ssh-agent -s)"` startet einen **neuen** Agenten und sollte **nicht bei jedem neuen Terminal blind wiederholt werden**. Andere Shells oder ein Neustart von WSL erben die Verbindung nicht unbedingt.
+
+**Bequemer für mehrere Bash-Terminals:** Auf Debian/WSL kann das optionale Paket `keychain` einen Agenten über mehrere Shell-Sitzungen wiederverwenden:
+
+```bash
+sudo apt install keychain
+```
+
+Nach Prüfung der vorhandenen SSH-Agent-Konfiguration diese Zeile **einmalig** in `~/.bashrc` ergänzen (nicht doppelt eintragen):
+
+```bash
+eval "$(keychain --eval --quiet ~/.ssh/id_ed25519)"
+```
+
+Damit wird ein vorhandener Agent nach Möglichkeit wiederverwendet und die Passphrase normalerweise nicht in jeder neu geöffneten Shell verlangt. **Die obige `keychain`-Variante setzt nicht automatisch das Acht-Stunden-Limit aus dem ersten Beispiel**; wer eine begrenzte Freigabe verlangt, muss das Lebenszeitlimit mit `ssh-add -t` bzw. einer geeigneten Agent-Policy separat sicherstellen.
+
+### Windows 11 – eingebauten OpenSSH-Agent verwenden
+
+**Einmalig in PowerShell mit Administratorrechten** den Windows-Dienst aktivieren:
+
+```powershell
+Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+```
+
+**Danach in einer normalen PowerShell** den Schlüssel hinzufügen und testen:
+
+```powershell
+ssh-add "$env:USERPROFILE\.ssh\id_ed25519"
+ssh-add -l
+ssh -T git@github.com
+```
+
+Die Passphrase wird beim Hinzufügen eingegeben; der Windows-Agent erleichtert danach weitere Git-Zugriffe. **Falls Git for Windows trotzdem ständig nachfragt**, verwendet es möglicherweise seine eigene `ssh.exe` statt des Windows-OpenSSH-Clients. Dann kann man in **Git for Windows** gezielt umstellen:
+
+```powershell
+git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
+```
+
+Diese Einstellung gilt für die jeweilige **Git-Installation** und sollte nicht pauschal für WSL-Git übernommen werden. Windows und WSL besitzen normalerweise getrennte SSH-Agenten und Home-Verzeichnisse; Schlüssel und Agenten nicht unüberlegt zwischen den Systemen kopieren oder weiterreichen.
+
+### Komfort gegen Sicherheit abwägen
+
+- **Empfehlung:** Passphrase **beibehalten**, Agent nutzen; nicht den Schlüssel unverschlüsselt speichern oder die Passphrase in Skripten hinterlegen.
+- **Sitzungsdauer:** Ein länger laufender Agent ist bequemer. Während ein Schlüssel geladen ist, können jedoch Prozesse mit entsprechendem Zugriff auf den Agent-Socket möglicherweise Authentisierungen anfordern. `ssh-add -t 8h` begrenzt diese Zeit unter Linux/WSL; bei Windows den Lebenszyklus und die Dienstberechtigungen bewusst beurteilen.
+- **Agent leeren (Linux/WSL und üblicher OpenSSH-Client):** `ssh-add -D` entfernt **alle** geladenen Identitäten aus dem erreichbaren Agenten, **nicht** die Schlüsseldateien. Für einen einzelnen Schlüssel: `ssh-add -d ~/.ssh/id_ed25519`.
+- **Rechner verloren oder kompromittiert?** Betroffenen öffentlichen SSH-Schlüssel bei GitHub entfernen; bei Verdacht privaten Schlüssel als kompromittiert behandeln und neuen Schlüssel verwenden. Ein bloßes Leeren des Agenten reicht nicht aus.
+- **Fehlersuche:** `ssh-add -l` zeigt geladene Schlüssel, `git remote -v` das Transportprotokoll. Bei `Permission denied (publickey)` Identität, Agent-Verbindung und auf GitHub hinterlegten **öffentlichen** Schlüssel prüfen.
+
+**Quellen:** [GitHub – SSH-Schlüssel zum Agenten hinzufügen](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent), [GitHub – SSH-Passphrasen](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/working-with-ssh-key-passphrases), [Microsoft – OpenSSH-Schlüsselverwaltung](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement).
+
 ## 4. Tokens und App-Berechtigungen (P0)
 Auf GitHub unter **Settings → Developer settings → Personal access tokens** und **Settings → Applications** prüfen:
 1. PAT-Liste mit Zweck, Ablauf, Besitzer und Repository-Scope inventarisieren.
@@ -50,6 +121,7 @@ Auf GitHub unter **Settings → Developer settings → Personal access tokens** 
 | 2FA und Wiederherstellung | UNGEPRÜFT | – | |
 | Verknüpfte E-Mail geschützt | UNGEPRÜFT | – | |
 | SSH- und Signing-Schlüssel getrennt geprüft | UNGEPRÜFT | – | |
+| SSH-Agent/Passphrase-Handhabung und Freigabedauer bewertet | UNGEPRÜFT | – | |
 | PATs minimal berechtigt | UNGEPRÜFT | – | |
 | OAuth- und GitHub-Apps geprüft | UNGEPRÜFT | – | |
 | Backup-/Wiederherstellungsweg erprobt | UNGEPRÜFT | – | |
